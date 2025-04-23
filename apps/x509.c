@@ -792,6 +792,35 @@ int x509_main(int argc, char **argv)
         x = load_cert_pass(infile, informat, 1, passin, "certificate");
         if (x == NULL)
             goto end;
+        /* Force SKID presence check */
+        fprintf(stderr, "debug: x509 main 2\n");
+        fflush(stdout);
+        int skid_index;
+        X509_EXTENSION* skid_ext;
+        ASN1_OCTET_STRING* skid_value;
+
+        /* Check if SKID exists */
+        skid_index = X509_get_ext_by_NID(x, NID_subject_key_identifier, -1);
+        if (skid_index == -1) {
+            BIO_printf(bio_err, 
+                "Error: Subject Key Identifier (SKID) is missing in the certificate.\n");
+            goto err;
+        }
+
+        /* Retrieve the SKID extension */
+        skid_ext = X509_get_ext(x, skid_index);
+        if (skid_ext == NULL) {
+            BIO_printf(bio_err, 
+                "Error: Failed to retrieve Subject Key Identifier (SKID) extension.\n");
+            goto err;
+        }
+
+        /* Get the actual SKID value */
+        skid_value = X509V3_EXT_d2i(skid_ext);
+        if (skid_value == NULL || ASN1_STRING_length(skid_value) == 0) {
+            BIO_printf(bio_err, "Error: Subject Key Identifier (SKID) is empty.\n");
+            goto err;
+        }
     }
     if ((fsubj != NULL || req != NULL)
         && !X509_set_subject_name(x, fsubj != NULL ? fsubj :
